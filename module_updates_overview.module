@@ -1,0 +1,291 @@
+<?php
+
+/**
+ * @file
+ * Provides a copy/paste friendly overview of the modules in need of updates.
+ *
+ * Used to coordinate broad heavy module update tasks, deviding the updates into
+ * groups making it more test-able and safe to update by groups.
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function module_updates_overview_menu() {
+  $items = [];
+
+  $items['admin/module_updates_overview'] = [
+    'page callback' => 'module_updates_overview_admin_page',
+    'title' => 'Module Updates Overview',
+    'access arguments' => ['administer modules'],
+  ];
+
+  return $items;
+}
+
+/**
+ * Output a Google sheets copy/paste friendly table.
+ *
+ * Color coding is not supported, but you should really do that to increase
+ * overview.
+ */
+function module_updates_overview_admin_page() {
+  require_once drupal_get_path('module', 'update') . '/update.report.inc';
+
+  if ($available = update_get_available(TRUE)) {
+    module_load_include('inc', 'update', 'update.compare');
+    $data = update_calculate_project_data($available);
+
+    $rows = [];
+
+    $default_row = [
+      'jira_task_id' => '',
+      'date_started' => '',
+      'module' => '',
+      'name' => '',
+      'current_version' => '',
+      'new_version' => '',
+      'critical' => '',
+      'group' => '',
+      'status' => '',
+      'link' => '',
+    ];
+
+    $table_header = [
+      'Jira task id',
+      'Date started',
+      'Module',
+      'Name',
+      'Current version',
+      'New version',
+      'Critical?',
+      'Group',
+      'Status',
+      'Link',
+    ];
+
+    foreach ($data as $key => $project_info) {
+      if ($project_info['status'] == UPDATE_CURRENT) {
+        continue;
+      }
+
+      $project = $default_row;
+      $project['module'] = $key;
+      $project['name'] = $project_info['title'];
+      $project['link'] = $project_info['link'];
+      $project['current_version'] = $project_info['existing_version'];
+      $project['new_version'] = $project_info['recommended'];
+      $project['critical'] = (int) ($project_info['status'] == UPDATE_NOT_SECURE);
+      $project['group'] = module_updates_overview_add_grouping($key);
+
+      $rows[$key] = [
+        'style' => 'background-color:' . module_updates_overview_color($project['group']),
+        'data' => $project,
+      ];
+    }
+
+    uasort($rows, 'module_updates_overview_sort_list');
+
+    return theme('table', ['rows' => $rows, 'header' => $table_header]);
+  }
+  else {
+    return theme('update_report', array('data' => _update_no_data()));
+  }
+}
+
+/**
+ * Generate a color, based on the given name.
+ *
+ * @param string $name
+ *   The name..
+ *
+ * @return string
+ *   RGB color as Hex.
+ */
+function module_updates_overview_color($name) {
+  static $assigned_colors = [];
+
+  if (!isset($assigned_colors[$name])) {
+    // Generate a color consistenly based on the name. The math is nice and
+    // what ever gave some colors we could use.
+    $crc32 = crc32($name);
+    $assigned_colors[$name] = '#' . dechex(100 + ($crc32) % 120) . dechex(100 + ($crc32 * 2) % 120) . dechex(100 + ($crc32 * 3) % 120);
+  }
+
+  return $assigned_colors[$name];
+}
+
+/**
+ * Sort callback: Sort by group, critical and then the name.
+ */
+function module_updates_overview_sort_list($a, $b) {
+  if ($a['data']['group'] != $b['data']['group']) {
+    return strcmp($a['data']['group'], $b['data']['group']) < 0 ? -1 : 1;
+  }
+
+  if ($a['data']['critical'] != $b['data']['critical']) {
+    return $a['data']['critical'] > $b['data']['critical'] ? -1 : 1;
+  }
+
+  return strcmp($a['data']['name'], $b['data']['name']) < 0 ? -1 : 1;
+
+}
+
+/**
+ * Group the projects into contexts.
+ *
+ * @param string $project
+ *   Name of the project.
+ *
+ * @return string
+ *   Name of the group for the given project.
+ */
+function module_updates_overview_add_grouping($project) {
+  $group_patterns = [
+    'admin_menu' => 'Backend',
+    'adminimal_admin_menu' => 'Backend',
+    'adminimal_theme ' => 'Backend',
+    'menu_block' => 'Backend',
+    'focal_point' => 'Backend',
+    'ctools' => 'Backend',
+    'panels_everywhere' => 'Backend',
+    'apachesolr' => 'Search',
+    'search_api' => 'Search',
+    'search_api_acquia' => 'Search',
+    'search_api_solr' => 'Search',
+    'google_tag' => 'SoMe',
+    'mailsystem' => 'SoMe',
+    'media_youtube' => 'SoMe',
+    'metatag' => 'SoMe',
+    'recaptcha' => 'SoMe',
+    'print' => 'SoMe',
+    'xmlsitemap' => 'SoMe',
+    'eck' => 'System Data',
+    'features' => 'System Data',
+    'field_collection' => 'System Data',
+    'file_entity' => 'System Data',
+    'libraries' => 'System Data',
+    'ultimate_cron' => 'System Data',
+    'entity' => 'System Data',
+    'uuid' => 'System Data',
+    'taxonomy_access_fix' => 'Taxonomy',
+    'taxonomy_menu' => 'Taxonomy',
+    'ajax_comments' => 'Various',
+    'linkchecker' => 'Various',
+    'og' => 'Various',
+    'saml_sp' => 'Various',
+    'webform' => 'Various',
+    'autologout' => 'Various',
+    'eu_cookie_compliance' => 'Various',
+    'link' => 'Various',
+    'views_bulk_operations' => 'Views',
+    'views' => 'Views',
+    'diff' => 'Revisioner',
+    'drafty' => 'Revisioner',
+    'unpublish_button' => 'Revisioner',
+    'globalredirect' => 'Backend',
+    'link' => 'Backend',
+    'multiple_fields_remove_button' => 'Backend',
+    'override_node_options' => 'Backend',
+    'special_menu_items' => 'Backend',
+    'term_merge' => 'Backend',
+    'token' => 'Backend',
+    'token_tweaks' => 'Backend',
+    'entityreference' => 'Backend Fields',
+    'title' => 'Backend Fields',
+    'date' => 'Backend Fields',
+    'default_image_ft' => 'Backend Fields',
+    'entityreference_autocomplete' => 'Backend Fields',
+    'entityreference_prepopulate' => 'Backend Fields',
+    'entityreference_view_widget' => 'Backend Fields',
+    'field_collection' => 'Backend Fields',
+    'admin_views' => 'Backend UI',
+    'ds' => 'Backend UI',
+    'adminimal_admin_menu' => 'Backend UI',
+    'chosen' => 'Backend UI',
+    'chosen_ajax' => 'Backend UI',
+    'ckeditor_link' => 'Editor',
+    'ckeditor_link_file' => 'Editor',
+    'inline_entity_form' => 'Editor',
+    'linkit' => 'Editor',
+    'wysiwyg' => 'Editor',
+    'captcha' => 'SoMe',
+    'google_tag' => 'SoMe',
+    'plupload' => 'Forms',
+    'download_file' => 'Frontend',
+    'authcache' => 'Login',
+    'session_expire' => 'Login',
+    'media' => 'Media',
+    'focal_point' => 'Media',
+    'og' => 'Organic Groups',
+    'og_menu' => 'Organic Groups',
+    'fieldable_panels_panes' => 'Panels',
+    'ctools' => 'Panels',
+    'lazy_pane' => 'Panels',
+    'panels' => 'Panels',
+    'panels_everywhere' => 'Panels',
+    'workbench_moderation' => 'Revisioner',
+    'diff' => 'Revisioner',
+    'workbench' => 'Revisioner',
+    'workbench_moderation_buttons' => 'Revisioner',
+    'workbench_scheduler' => 'Revisioner',
+    'ajax_facets' => 'Search',
+    'facetapi' => 'Search',
+    'search_api' => 'Search',
+    'search_api_autocomplete' => 'Search',
+    'search_api_exclude' => 'Search',
+    'search_api_solr' => 'Search',
+    'xmlsitemap' => 'SoMe',
+    'metatag' => 'SoMe',
+    'schema_metatag' => 'SoMe',
+    'socialfield' => 'SoMe',
+    'entity' => 'Structure',
+    'config_pages' => 'Structure',
+    'eck' => 'Structure',
+    'defaultconfig' => 'Structure',
+    'menu_block' => 'Structure',
+    'uuid' => 'System Data',
+    'file_entity' => 'System Data',
+    'migrate' => 'System Data',
+    'uuid_features' => 'System Data',
+    'uuid_features_menu' => 'System Data',
+    'restclient' => 'System Http',
+    'chr' => 'System Http',
+    'expire' => 'System Http',
+    'background_process' => 'System Logic',
+    'flood_unblock' => 'System Logic',
+    'libraries' => 'System Logic',
+    'rules' => 'System Logic',
+    'ultimate_cron' => 'System Logic',
+    'better_exposed_filters' => 'Views',
+    'views' => 'Views',
+    'views_access_callback' => 'Views',
+    'views_bulk_operations' => 'Views',
+    'views_litepager' => 'Views',
+    'multiform' => 'Webform',
+    'webform' => 'Webform',
+    'webform_layout' => 'Webform',
+    'webform_password_field' => 'Webform',
+    'webform_validation' => 'Webform',
+    'drupal' => 'Core',
+  ];
+
+  if (isset($group_patterns[$project])) {
+    return $group_patterns[$project];
+  }
+
+  // No direct match. Let's make a guess.
+  $regex_patterns = [
+    'views' => 'Views',
+    'theme' => 'Backend',
+    'taxonomy' => 'Taxonomy',
+  ];
+
+  foreach ($regex_patterns as $pattern => $group) {
+    if (preg_match('/' . $pattern . '/', $project)) {
+      return $group;
+    }
+  }
+
+  return '';
+}
