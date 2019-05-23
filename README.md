@@ -9,6 +9,26 @@ groups making it more test-able and safe to update by groups.
 
 Enable the module
 
+### Composer
+```
+        "drupal/module_updates_overview": "1.x-dev",
+.
+.
+.
+        {
+            "type": "package",
+            "package": {
+                "name": "drupal/module_updates_overview",
+                "version": "1.x-dev",
+                "type": "drupal-module",
+                "source": {
+                    "url": "https://github.com/adaptdk/module_updates_overview.git",
+                    "type": "git",
+                    "reference": "refs/heads/7.x-1.x"
+                }
+            }
+        }
+```
 
 ## Usage
 
