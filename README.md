@@ -32,5 +32,13 @@ Enable the module
 
 ## Usage
 
+```
+# Enable this module
+$ drush en module_updates_overview
+
+# Update the status of the modules.
+$ drush @astra.dev pm-updatestatus
+```
+
 Visit /admin/module_updates_overview and the list is copy/paste ready for a
 google sheet, coordinating the creation of tasks and progress.
