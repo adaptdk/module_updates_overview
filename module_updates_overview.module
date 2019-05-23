@@ -51,21 +51,34 @@ function module_updates_overview_admin_page() {
   $output = theme('update_last_check', array('last' => $last));
   $output .= '<hr />';
 
+  // Ouput the PHP version.
   $matches = [];
   preg_match('/\d+\.\d+/', phpversion(), $matches);
   $phpversion = empty($matches[0]) ? phpversion() : $matches[0];
   unset($matches);
 
+  // Ouput the hosting platform.
+  if (getenv(['AH_SITE_ENVIRONMENT'])) {
+    $hosting = 'Acquia';
+  }
+  elseif (getenv('PLATFORM_PROJECT')) {
+    $hosting = 'Platform.sh';
+  }
+  else {
+    $hosting = t('Unknown');
+  }
+
   $overview_values = [
     'Project' => ucfirst(variable_get('site_name', t('Unknown'))),
+    'Hosting' => $hosting,
+    'PHP version' => $phpversion,
     'Critical count' => 0,
     'Critical estimate' => 0,
     'Non critical count' => 0,
     'Trivial estimate' => 0,
-    'PHP version' => $phpversion,
     'PHP estimate' => 0,
-    'Updates Link' => '',
     'Comments' => '',
+    'Updates Link' => '',
   ];
 
   if ($available = update_get_available(TRUE)) {
