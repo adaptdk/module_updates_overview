@@ -17,10 +17,25 @@ function module_updates_overview_menu() {
   $items['admin/module_updates_overview'] = [
     'page callback' => 'module_updates_overview_admin_page',
     'title' => 'Module Updates Overview',
-    'access arguments' => ['administer modules'],
+    'access callback' => 'module_updates_overview_access',
   ];
 
   return $items;
+}
+
+/**
+ * Access check based on permission or IP.
+ */
+function module_updates_overview_access() {
+  if (user_access('administer modules')) {
+    return TRUE;
+  }
+  // From Adapt office or local.
+  elseif (ip_address() == '94.18.215.66' || ip_address() == '127.0.0.1') {
+    return TRUE;
+  }
+
+  return FALSE;
 }
 
 /**
@@ -31,6 +46,27 @@ function module_updates_overview_menu() {
  */
 function module_updates_overview_admin_page() {
   require_once drupal_get_path('module', 'update') . '/update.report.inc';
+
+  $last = variable_get('update_last_check', 0);
+  $output = theme('update_last_check', array('last' => $last));
+  $output .= '<hr />';
+
+  $matches = [];
+  preg_match('/\d+\.\d+/', phpversion(), $matches);
+  $phpversion = empty($matches[0]) ? phpversion() : $matches[0];
+  unset($matches);
+
+  $overview_values = [
+    'Project' => ucfirst(variable_get('site_name', t('Unknown'))),
+    'Critical count' => 0,
+    'Critical estimate' => 0,
+    'Non critical count' => 0,
+    'Trivial estimate' => 0,
+    'PHP version' => $phpversion,
+    'PHP estimate' => 0,
+    'Updates Link' => '',
+    'Comments' => '',
+  ];
 
   if ($available = update_get_available(TRUE)) {
     module_load_include('inc', 'update', 'update.compare');
@@ -82,14 +118,35 @@ function module_updates_overview_admin_page() {
         'style' => 'background-color:' . module_updates_overview_color($project['group']),
         'data' => $project,
       ];
+
+      if ($project_info['status'] == UPDATE_NOT_SECURE) {
+        $overview_values['Critical count']++;
+      }
+      else {
+        $overview_values['Non critical count']++;
+      }
     }
 
     uasort($rows, 'module_updates_overview_sort_list');
 
-    return theme('table', ['rows' => $rows, 'header' => $table_header]);
+    $output .= theme('table', [
+      'rows' => [
+        0 => [
+          'style' => 'background-color:#ff66df',
+          'data' => $overview_values,
+        ],
+      ],
+      'header' => array_keys($overview_values),
+    ]);
+
+    $output .= '<hr />';
+
+    $output .= theme('table', ['rows' => $rows, 'header' => $table_header]);
+    return $output;
   }
   else {
-    return theme('update_report', array('data' => _update_no_data()));
+    $output .= theme('update_report', array('data' => _update_no_data()));
+    return $output;
   }
 }
 

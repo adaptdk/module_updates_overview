@@ -2,3 +2,4 @@ name = Module updates overview
 description = Provides a page with a more copy/paste friendly overview of the modules in need of updates.
 core = 7.x
 package = aaa
+dependencies[] = update
