@@ -58,7 +58,7 @@ function module_updates_overview_admin_page() {
   unset($matches);
 
   // Ouput the hosting platform.
-  if (getenv(['AH_SITE_ENVIRONMENT'])) {
+  if (getenv('AH_SITE_ENVIRONMENT')) {
     $hosting = 'Acquia';
   }
   elseif (getenv('PLATFORM_PROJECT')) {
