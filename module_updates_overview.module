@@ -72,13 +72,15 @@ function module_updates_overview_admin_page() {
     'Project' => ucfirst(variable_get('site_name', t('Unknown'))),
     'Hosting' => $hosting,
     'PHP version' => $phpversion,
+    'Core' => VERSION,
     'Critical count' => 0,
     'Critical estimate' => 0,
     'Non critical count' => 0,
     'Trivial estimate' => 0,
     'PHP estimate' => 0,
     'Comments' => '',
-    'Updates Link' => '',
+    'Updates scheme link' => '',
+    'Updates link' => url(current_path(), ['absolute' => TRUE]),
   ];
 
   if ($available = update_get_available(TRUE)) {
